@@ -1,17 +1,7 @@
-#
-# This is the server logic of a Shiny web application. You can run the 
-# application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-# 
-#    http://shiny.rstudio.com/
-#
 
 library(shiny)
 library(httr)
 source("functions.R")
-
-# Define server logic required to draw a histogram
 
 shinyServer(function(input, output) {
     
@@ -88,7 +78,6 @@ shinyServer(function(input, output) {
       #Only keep data that's in the final data
       correctedData <- getCorrectedData(tsID, start, end)
       output <- output[output$datetime %in% correctedData$datetime,]
-      # output$fromAQ <- correctedData$corrected
       #Give the data a grade
       output <- na.omit(output)
       grade <- wagnerGrade(parm, output$raw, output$sumPercent, output$sumNumeric)
@@ -130,13 +119,5 @@ shinyServer(function(input, output) {
      table <- findDisapproval(getApprovalList(tsID, "0002-01-01", "9998-02-01"))
      table
    })
-   
-   # output$approvalTable <- renderTable({
-   #   tsID <- input$tsID
-   #   start <- input$dateRange[1]
-   #   end <- input$dateRange[2]
-   #   table <- getApprovalList(tsID, "0002-01-01", "9998-02-01")
-   #   table
-   # })
   
 })

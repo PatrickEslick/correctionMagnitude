@@ -179,7 +179,6 @@ getRawData <- function(tsID, start, end) {
   raw <- genericAQ(serviceRequest, parameters, values)
   out <- raw$Points
   out[,2] <- out[,2][,1]
-  # out[,1] <- out[,1][,1]
   out$Timestamp <- as.POSIXct(out$Timestamp, format="%Y-%m-%dT%H:%M:%S")
   names(out) <- c("datetime", "raw")
   out <- na.omit(out)
