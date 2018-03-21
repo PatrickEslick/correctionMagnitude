@@ -1,0 +1,70 @@
+
+### Other tools
+[SampleQ](http://kswsc.cr.usgs.gov:3838/peslick/SampleQ/) - get interpolated flow data for QW sample times
+
+## Using the app
+
+### To see unapproved time periods
+
+1. Enter the site number for the location.
+2. Select the parameter of interest from the Parameter drop-down.
+3. Select the specific time series of interest from the Time series drop-down. If this drop-down menu doesn't appear, close the app and try again in a few minutes. If a message appears saying "Argument is of length zero", no time series were found matching this location and parameter.
+4. DON'T click "Go". The "Go" button starts the time series calculations and can take a while. If you only want to look at the unapproved periods, just go directly to the "Approval" tab without clicking go. This will save you time.
+
+### To see correction magnitude information
+
+1. Enter the site number for the location.
+2. Select the parameter of interest from the Parameter drop-down.
+4. Select the time period of interest from the "Start" and "End" boxes. The maximum date range is 18 months. You can type a date or select it from the calendar pop-up.
+3. Select the specific time series of interest from the Time series drop-down. If this drop-down menu doesn't appear, close the app and try again in a few minutes. If a message appears saying "Argument is of length zero", no time series were found matching this location and parameter.
+4. Click "Go" and switch to the "Summary" or "Time Series" tabs too see results.
+
+## Details
+
+### Summary
+
+The app loads each raw time series point, then downloads and applies any applicable fouling and drift corrections. The criteria in TM-1D3 are used to determine a grade for each point of from "Excellent" to "Consider deletion". The percentages given indicate in the summary table indicate what fraction of the points in the date range belong to each category.
+
+### Time Series
+
+The table in the time series tab shows the raw value, values of fouling and drift corrections, the final computed value, and a grade for each point. Definitions for each column are given below:
+
+**datetime** - the date and time of each point, in GMT.
+
+**raw** - the raw value from AQUARIUS.
+
+**fouling** - the numeric value of the fouling correction applied to each point.
+
+**foulingPercent** - the value of the fouling correction applied to each point as a percent of the raw value.
+
+**foulingCorrected** - the value of the measurement after the fouling correction has been applied.
+
+**drift** - the numeric value of the drift correction applied to each point.
+
+**driftPercent** - the value of the drift correction applied to each point as a percent of the raw value.
+
+**netCorrection** - the net numeric correction applied to each point.
+
+**netPercent** - the net correction applied to each point as a percent of the raw value.
+
+**sumNumerical** - the sum of the absolute values of the fouling and drift correction.
+
+**sumPercent** - the sum of the absolute value of the fouling and drift corrections as a percent of the raw value.
+
+**Final** - the value of the measurment after all fouling and drift corrections have been applied.
+
+**Grade** - the grade of the measurement based on the criteria given in TM-1D3.
+
+
+### Approval
+
+Shows the date range for any periods that were approved, and then unapproved. If no periods have been unapproved, the table will be empty.
+
+**StartDate** - the beginning of the unapproved period.
+
+**EndDate** - the end of the unapproved period.
+
+**WhenUnapproved** - the date and time the period was unapproved.
+
+**User** - the user who unapproved the period.
+
