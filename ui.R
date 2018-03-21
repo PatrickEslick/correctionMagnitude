@@ -28,6 +28,11 @@ shinyUI(fluidPage(
       tabPanel("Information", includeMarkdown("help.Rmd")),
       tabPanel("Summary", tableOutput("summary")),
       tabPanel("Time Series", dataTableOutput("table")),
+      tabPanel("Record completeness", 
+        selectInput("complete_freq", label = "Observation frequency (in minutes)",
+                    choices = c("Auto detect" = 0, 15, 30, 60, 120), selected = "Auto detect"),
+        tableOutput("completeTable")
+      ),
       tabPanel("Approval", 
         helpText("All unapproved periods:"),
         tableOutput("unApprovedTable")

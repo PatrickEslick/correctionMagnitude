@@ -119,5 +119,17 @@ shinyServer(function(input, output) {
      table <- findDisapproval(getApprovalList(tsID, "0002-01-01", "9998-02-01"))
      table
    })
+   
+   output$completeTable <- renderTable({
+     
+     freq <- input$complete_freq
+     if(freq == 0) {
+       freq <- "auto"
+     }
+     datetimes <- table()$datetime
+     
+     recordCopmleteness(datetimes, freq = freq)
+     
+   })
   
 })

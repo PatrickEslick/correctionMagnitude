@@ -466,7 +466,49 @@ wagnerGrade <- function(parameter, values, percent=NULL, numeric=NULL) {
   
 }
 
-
+recordCopmleteness <- function(datetimes, start = "auto", end = "auto", freq = "auto") {
+  #If the freq is "auto", use the most common value for the frequency, otherwise use the value supplied
+  if(freq == "auto") {
+    #Find the time differences between each point
+    diff <- vector()
+    diff[1] <- 0
+    for(i in 2:length(datetimes)) {
+      diff[i] <- difftime(datetimes[i], datetimes[i-1], units="mins")
+    }
+    freq_use <- unique(diff)[which.max(tabulate(match(diff, unique(diff))))]
+  } else {
+    freq_use <- freq
+  }
+  #Based on the frequency, find how many points should be present in the datetimes
+  #If no start and end dates are specified, use the start and end times from the datetime vector
+  if(start == "auto") {
+    start_use <- min(datetimes)
+  } else {
+    start_use <- start
+  }
+  if(end=="auto") {
+    end_use <- max(datetimes)
+  } else {
+    end_use <- end
+  }
+  
+  time_span <- as.numeric(difftime(end_use, start_use, units="mins"))
+  ifComplete <- floor(time_span/freq_use) + 1
+  observed <- length(datetimes)
+  completeness <- length(datetimes) / ifComplete
+  comp_character <- paste(round(completeness * 100, 1), "%")
+  
+  output <- data.frame(
+    start_date = as.character(start_use),
+    end_date = as.character(end_use),
+    completeness = comp_character,
+    frequency_minutes = freq_use,
+    points_expected = ifComplete,
+    points_observed = observed
+  )
+  
+  return(output)
+}
 
 
 
