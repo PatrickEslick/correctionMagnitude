@@ -122,13 +122,71 @@ shinyServer(function(input, output) {
    
    output$completeTable <- renderTable({
      
-     freq <- input$complete_freq
+     freq <- as.numeric(input$complete_freq)
      if(freq == 0) {
        freq <- "auto"
      }
      datetimes <- table()$datetime
      
      recordCopmleteness(datetimes, freq = freq)
+     
+   })
+   
+   output$gapTable <- renderTable({
+     
+     input$go 
+     
+     if(testToken() == FALSE) {
+       getToken()
+     }
+     
+     isolate({
+       location <- input$site
+       start <- input$start
+       end <- input$end
+       tsID <- input$tsID
+       parm <- input$parameter
+     })
+     
+     gapTol <- as.numeric(input$gapTolerance)
+     datetimes <- table()$datetime
+    
+     if(gapTol == 0) {
+       gapTol <- getGapTolerance(tsID, 
+                                 as.character(start, format="%Y-%m-%d"),
+                                 as.character(end, format="%Y-%m-%d"))
+     }
+     
+     gapTest <- findGaps(datetimes, gapTol)
+     
+     print(head(gapTest))
+     
+     start <- min(gapTest$datetime)
+     start_char <- as.character(start)
+     end_char <- as.character(end)
+     end <- max(gapTest$datetime)
+     time_span <- as.numeric(difftime(end, start, units="mins"))
+     gaps <- length(gapTest$gap[gapTest$gap==TRUE])
+     gap_time <- sum(gapTest$diff[gapTest$gap==TRUE])
+     gap_percent <- round((gap_time / time_span) * 100, 1)
+     gap_percent <- paste(gap_percent, "%")
+     if(class(gapTol) == "numeric") {
+       tolerance <- gapTol
+     } else {
+       if(min(gapTol$ToleranceInMinutes) == max(gapTol$ToleranceInMinutes)) {
+         tolerance <- gapTol$ToleranceInMinutes[1]
+       } else {
+         tolerance <- "multiple"
+       }
+     }
+     
+     out <- data.frame(start_date = start_char, 
+                      end_date = end_char, 
+                      gap_percent, 
+                      gaps, 
+                      gap_time,
+                      time_span,
+                      tolerance)
      
    })
   

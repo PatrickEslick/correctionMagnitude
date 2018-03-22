@@ -29,6 +29,11 @@ shinyUI(fluidPage(
       tabPanel("Summary", tableOutput("summary")),
       tabPanel("Time Series", dataTableOutput("table")),
       tabPanel("Record completeness", 
+        selectInput("gapTolerance", label = "Gap Tolerance (in minutes)",
+                    choices = c("Use AQUARIUS gap tolerance" = 0, 
+                                30, 60, 120, 180, 240, 300, 360, 720),
+                    selected = "Use AQUARIUS gap tolerance"),
+        tableOutput("gapTable"),
         selectInput("complete_freq", label = "Observation frequency (in minutes)",
                     choices = c("Auto detect" = 0, 15, 30, 60, 120), selected = "Auto detect"),
         tableOutput("completeTable")
