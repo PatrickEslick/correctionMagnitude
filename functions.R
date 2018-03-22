@@ -175,7 +175,7 @@ testToken <- function() {
 getRawData <- function(tsID, start, end) {
   serviceRequest <- "GetTimeSeriesRawData"
   parameters <- c("TimeSeriesUniqueId", "QueryFrom", "QueryTo", "GetParts", "UtcOffset")
-  values <- c(tsID, start, end, "PointsOnly", "-6")
+  values <- c(tsID, start, end, "PointsOnly", "0")
   raw <- genericAQ(serviceRequest, parameters, values)
   out <- raw$Points
   out[,2] <- out[,2][,1]
@@ -189,7 +189,7 @@ getRawData <- function(tsID, start, end) {
 getCorrectedData <- function(tsID, start, end) {
   serviceRequest <- "GetTimeSeriesCorrectedData"
   parameters <- c("TimeSeriesUniqueId", "QueryFrom", "QueryTo", "GetParts", "UtcOffset")
-  values <- c(tsID, start, end, "PointsOnly", "-6")
+  values <- c(tsID, start, end, "PointsOnly", "0")
   corrected <- genericAQ(serviceRequest, parameters, values)
   out <- corrected$Points
   out[,2] <- out[,2][,1]
@@ -233,6 +233,18 @@ getCorrections <- function(tsID, start, end) {
     }
   }
   return(corrections)
+}
+
+#Function to get the gap tolerance for a time series
+getGapTolerance <- function(tsID, start, end) {
+  serviceRequest <- "GetTimeSeriesCorrectedData"
+  parameters <- c("TimeSeriesUniqueId", "QueryFrom", "QueryTo", "GetParts", "UtcOffset", "IncludeGapMarkers")
+  values <- c(tsID, start, end, "MetadataOnly", "0", "true")
+  metadata <- genericAQ(serviceRequest, parameters, values)
+  out <- metadata$GapTolerances
+  out$StartTime <- as.POSIXct(out$StartTime, format="%Y-%m-%dT%H:%M")
+  out$EndTime <- as.POSIXct(out$EndTime, format="%Y-%m-%dT%H:%M")
+  return(out)
 }
 
 #-----------------------------------------------------------------------------------------------------------------------------------
@@ -502,12 +514,37 @@ recordCopmleteness <- function(datetimes, start = "auto", end = "auto", freq = "
     start_date = as.character(start_use),
     end_date = as.character(end_use),
     completeness = comp_character,
-    frequency_minutes = freq_use,
-    points_expected = ifComplete,
-    points_observed = observed
+    frequency_minutes = round(freq_use, 0),
+    points_expected = round(ifComplete, 0),
+    points_observed = round(observed, 0)
   )
   
   return(output)
+}
+
+#Find what percentage of the record falls into a gap based on a dataframe of gap toleranes OR 
+#a manually specified gap tolerance in minutes
+findGaps <- function(datetimes, gapTol = 120) {
+  
+  diff <- vector()
+  diff[1] <- 0
+  for(i in 2:length(datetimes)) {
+    diff[i] <- difftime(datetimes[i], datetimes[i-1], units="mins")
+  }
+  gap <- rep(FALSE, length(datetimes))
+  gapTimes <- data.frame(datetime = datetimes, diff = diff, gap = gap)
+  if(class(gapTol) == "data.frame") {
+    for(i in 1:nrow(gapTol)) {
+      temp <- ifelse(gapTimes$datetime >= gapTol$StartTime[i] & 
+                       gapTimes$datetime <= gapTol$EndTime[i] & 
+                       gapTimes$diff > gapTol$ToleranceInMinutes[i], 
+                     TRUE, FALSE)
+      gapTimes$gap <- gapTimes$gap | temp
+    }
+  } else if(class(gapTol) == "numeric") {
+    gapTimes$gap <- gapTimes$diff > gapTol
+  }
+  return(gapTimes)
 }
 
 
