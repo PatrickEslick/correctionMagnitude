@@ -72,7 +72,7 @@ getApprovalList <- function(timeSeriesID, start, end) {
   values <- c(timeSeriesID, start, end)
   raw <- genericAQ(serviceRequest, parameters, values)
   out <- raw$ApprovalsTransactions
-  out$DateAppliedUtc <- as.POSIXct(out$DateAppliedUtc, format="%Y-%m-%dT%H:%M")
+  out$DateAppliedUtc <- as.POSIXct(out$DateAppliedUtc, format="%Y-%m-%dT%H:%M", tz = "GMT")
   out$StartTime <- as.POSIXct(out$StartTime, format="%Y-%m-%dT%H:%M")
   out$EndTime <- as.POSIXct(out$EndTime, format="%Y-%m-%dT%H:%M")
   return(out)
@@ -179,7 +179,7 @@ getRawData <- function(tsID, start, end) {
   raw <- genericAQ(serviceRequest, parameters, values)
   out <- raw$Points
   out[,2] <- out[,2][,1]
-  out$Timestamp <- as.POSIXct(out$Timestamp, format="%Y-%m-%dT%H:%M:%S")
+  out$Timestamp <- as.POSIXct(out$Timestamp, format="%Y-%m-%dT%H:%M:%S", tz="GMT")
   names(out) <- c("datetime", "raw")
   out <- na.omit(out)
   return(out)
@@ -193,7 +193,7 @@ getCorrectedData <- function(tsID, start, end) {
   corrected <- genericAQ(serviceRequest, parameters, values)
   out <- corrected$Points
   out[,2] <- out[,2][,1]
-  out$Timestamp <- as.POSIXct(out$Timestamp, format="%Y-%m-%dT%H:%M:%S")
+  out$Timestamp <- as.POSIXct(out$Timestamp, format="%Y-%m-%dT%H:%M:%S", tz="GMT")
   names(out) <- c("datetime", "corrected")
   out <- na.omit(out)
   return(out)
@@ -242,8 +242,8 @@ getGapTolerance <- function(tsID, start, end) {
   values <- c(tsID, start, end, "MetadataOnly", "0", "true")
   metadata <- genericAQ(serviceRequest, parameters, values)
   out <- metadata$GapTolerances
-  out$StartTime <- as.POSIXct(out$StartTime, format="%Y-%m-%dT%H:%M")
-  out$EndTime <- as.POSIXct(out$EndTime, format="%Y-%m-%dT%H:%M")
+  out$StartTime <- as.POSIXct(out$StartTime, format="%Y-%m-%dT%H:%M", tz="GMT")
+  out$EndTime <- as.POSIXct(out$EndTime, format="%Y-%m-%dT%H:%M", tz="GMT")
   return(out)
 }
 
@@ -545,6 +545,22 @@ findGaps <- function(datetimes, gapTol = 120) {
     gapTimes$gap <- gapTimes$diff > gapTol
   }
   return(gapTimes)
+}
+
+#Function to make the data table in the app
+makeTable <- function(tsID, start, end, parm) {
+  
+  #Get data and apply corrections
+  output <- corrApply(tsID, start, end)
+  #Only keep data that's in the final data
+  correctedData <- getCorrectedData(tsID, start, end)
+  output <- output[output$datetime %in% correctedData$datetime,]
+  #Give the data a grade
+  output <- na.omit(output)
+  grade <- wagnerGrade(parm, output$raw, output$sumPercent, output$sumNumeric)
+  output$Grade <- grade
+  return(output)
+  
 }
 
 
