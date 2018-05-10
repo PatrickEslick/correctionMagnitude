@@ -73,15 +73,7 @@ shinyServer(function(input, output) {
      })
      
      if(location != "") {
-       #Get data and apply corrections
-      output <- corrApply(tsID, start, end)
-      #Only keep data that's in the final data
-      correctedData <- getCorrectedData(tsID, start, end)
-      output <- output[output$datetime %in% correctedData$datetime,]
-      #Give the data a grade
-      output <- na.omit(output)
-      grade <- wagnerGrade(parm, output$raw, output$sumPercent, output$sumNumeric)
-      output$Grade <- grade
+       output <- makeTable(tsID, start, end, parm)
      } else {
        output <- data.frame()
      }
