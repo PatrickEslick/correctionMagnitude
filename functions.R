@@ -478,7 +478,8 @@ wagnerGrade <- function(parameter, values, percent=NULL, numeric=NULL) {
   
 }
 
-recordCopmleteness <- function(datetimes, start = "auto", end = "auto", freq = "auto") {
+recordCompleteness <- function(datetimes, start = "auto", end = "auto", freq = "auto") {
+  
   #If the freq is "auto", use the most common value for the frequency, otherwise use the value supplied
   if(freq == "auto") {
     #Find the time differences between each point
@@ -593,8 +594,8 @@ summarizeGaps <- function(gapTest, gapTol) {
   
   start <- min(gapTest$datetime)
   start_char <- as.character(start)
-  end_char <- as.character(end)
   end <- max(gapTest$datetime)
+  end_char <- as.character(end)
   time_span <- as.numeric(difftime(end, start, units="mins"))
   gaps <- length(gapTest$gap[gapTest$gap==TRUE])
   gap_time <- sum(gapTest$diff[gapTest$gap==TRUE])
@@ -617,4 +618,5 @@ summarizeGaps <- function(gapTest, gapTol) {
                     gap_time,
                     time_span,
                     tolerance)
+  return(out)
 }

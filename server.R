@@ -1,6 +1,7 @@
 
 library(shiny)
 library(httr)
+library(dplyr)
 library(future)
 library(promises)
 source("functions.R")
@@ -106,7 +107,7 @@ shinyServer(function(input, output) {
      }
      
      table() %...>%
-       pull(datetimes) %...>%
+       pull(datetime) %...>%
        recordCompleteness(freq = freq)
      
    })
@@ -136,7 +137,7 @@ shinyServer(function(input, output) {
      }
      
      table() %...>%
-       pull(datetimes) %...>%
+       pull(datetime) %...>%
        findGaps(gapTol) %...>%
        summarizeGaps(gapTol)
      
