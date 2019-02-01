@@ -1,6 +1,8 @@
 
 library(shiny)
 library(httr)
+library(future)
+library(promises)
 source("functions.R")
 
 shinyServer(function(input, output) {
@@ -56,6 +58,7 @@ shinyServer(function(input, output) {
      text
    })
    
+   #CONVERT THIS TO A FUTURE
    table <- reactive({
      
      input$go 
@@ -73,33 +76,16 @@ shinyServer(function(input, output) {
      })
      
      if(location != "") {
-       output <- makeTable(tsID, start, end, parm)
+       output <- future({ makeTable(tsID, start, end, parm) })
      } else {
-       output <- data.frame()
+       output <- future ({ data.frame() })
      }
-     output
+     
    })
    
    output$summary <- renderTable({
-     data <- table()
-     if(nrow(data) != 0) {
-       excellentPercent <- nrow(data[data$Grade == "Excellent",])/nrow(data)
-       goodPercent <- nrow(data[data$Grade == "Good",])/nrow(data)
-       fairPercent <- nrow(data[data$Grade == "Fair",])/nrow(data)
-       poorPercent <- nrow(data[data$Grade == "Poor",])/nrow(data)
-       delPercent <- nrow(data[data$Grade == "Consider Deletion",])/nrow(data)
-       
-       grades <- c(excellentPercent, goodPercent, fairPercent, poorPercent, delPercent)
-       grades <- grades * 100
-       grades <- round(grades, 2)
-       grades <- paste0(as.character(grades), "%")
-       rows <- c("Excellent", "Good", "Fair", "Poor", "Consider Deletion")
-       summary <- data.frame(rows, grades)
-       names(summary) <- c("Grade", "Percent")
-     } else {
-       summary <- data.frame()
-     }
-     summary
+     table () %...>%
+       summarizeGrades()
    })
    
    output$table <- renderDataTable({
@@ -118,9 +104,10 @@ shinyServer(function(input, output) {
      if(freq == 0) {
        freq <- "auto"
      }
-     datetimes <- table()$datetime
      
-     recordCopmleteness(datetimes, freq = freq)
+     table() %...>%
+       pull(datetimes) %...>%
+       recordCompleteness(freq = freq)
      
    })
    
@@ -141,7 +128,6 @@ shinyServer(function(input, output) {
      })
      
      gapTol <- as.numeric(input$gapTolerance)
-     datetimes <- table()$datetime
     
      if(gapTol == 0) {
        gapTol <- getGapTolerance(tsID, 
@@ -149,36 +135,10 @@ shinyServer(function(input, output) {
                                  as.character(end, format="%Y-%m-%d"))
      }
      
-     gapTest <- findGaps(datetimes, gapTol)
-     
-     print(head(gapTest))
-     
-     start <- min(gapTest$datetime)
-     start_char <- as.character(start)
-     end_char <- as.character(end)
-     end <- max(gapTest$datetime)
-     time_span <- as.numeric(difftime(end, start, units="mins"))
-     gaps <- length(gapTest$gap[gapTest$gap==TRUE])
-     gap_time <- sum(gapTest$diff[gapTest$gap==TRUE])
-     gap_percent <- round((gap_time / time_span) * 100, 1)
-     gap_percent <- paste(gap_percent, "%")
-     if(class(gapTol) == "numeric") {
-       tolerance <- gapTol
-     } else {
-       if(min(gapTol$ToleranceInMinutes) == max(gapTol$ToleranceInMinutes)) {
-         tolerance <- gapTol$ToleranceInMinutes[1]
-       } else {
-         tolerance <- "multiple"
-       }
-     }
-     
-     out <- data.frame(start_date = start_char, 
-                      end_date = end_char, 
-                      gap_percent, 
-                      gaps, 
-                      gap_time,
-                      time_span,
-                      tolerance)
+     table() %...>%
+       pull(datetimes) %...>%
+       findGaps(gapTol) %...>%
+       summarizeGaps(gapTol)
      
    })
   
