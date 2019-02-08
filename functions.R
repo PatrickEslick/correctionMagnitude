@@ -478,7 +478,8 @@ wagnerGrade <- function(parameter, values, percent=NULL, numeric=NULL) {
   
 }
 
-recordCopmleteness <- function(datetimes, start = "auto", end = "auto", freq = "auto") {
+recordCompleteness <- function(datetimes, start = "auto", end = "auto", freq = "auto") {
+  
   #If the freq is "auto", use the most common value for the frequency, otherwise use the value supplied
   if(freq == "auto") {
     #Find the time differences between each point
@@ -563,5 +564,59 @@ makeTable <- function(tsID, start, end, parm) {
   
 }
 
+#Make a grade summary table from the data table
+summarizeGrades <- function(dataTable) {
+  
+  if(nrow(dataTable) != 0) {
+    excellentPercent <- nrow(dataTable[dataTable$Grade == "Excellent",])/nrow(dataTable)
+    goodPercent <- nrow(dataTable[dataTable$Grade == "Good",])/nrow(dataTable)
+    fairPercent <- nrow(dataTable[dataTable$Grade == "Fair",])/nrow(dataTable)
+    poorPercent <- nrow(dataTable[dataTable$Grade == "Poor",])/nrow(dataTable)
+    delPercent <- nrow(dataTable[dataTable$Grade == "Consider Deletion",])/nrow(dataTable)
+    
+    grades <- c(excellentPercent, goodPercent, fairPercent, poorPercent, delPercent)
+    grades <- grades * 100
+    grades <- round(grades, 2)
+    grades <- paste0(as.character(grades), "%")
+    rows <- c("Excellent", "Good", "Fair", "Poor", "Consider Deletion")
+    summary <- data.frame(rows, grades)
+    names(summary) <- c("Grade", "Percent")
+  } else {
+    summary <- data.frame()
+  }
+  return(summary)
 
+}
 
+#Summarize gaps based on the results of the findGaps function
+#e.g. findGaps(...) %>% summarizeGaps()
+summarizeGaps <- function(gapTest, gapTol) {
+  
+  start <- min(gapTest$datetime)
+  start_char <- as.character(start)
+  end <- max(gapTest$datetime)
+  end_char <- as.character(end)
+  time_span <- as.numeric(difftime(end, start, units="mins"))
+  gaps <- length(gapTest$gap[gapTest$gap==TRUE])
+  gap_time <- sum(gapTest$diff[gapTest$gap==TRUE])
+  gap_percent <- round((gap_time / time_span) * 100, 1)
+  gap_percent <- paste(gap_percent, "%")
+  if(class(gapTol) == "numeric") {
+    tolerance <- gapTol
+  } else {
+    if(min(gapTol$ToleranceInMinutes) == max(gapTol$ToleranceInMinutes)) {
+      tolerance <- gapTol$ToleranceInMinutes[1]
+    } else {
+      tolerance <- "multiple"
+    }
+  }
+  
+  out <- data.frame(start_date = start_char, 
+                    end_date = end_char, 
+                    gap_percent, 
+                    gaps, 
+                    gap_time,
+                    time_span,
+                    tolerance)
+  return(out)
+}
