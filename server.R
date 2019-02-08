@@ -14,9 +14,9 @@ shinyServer(function(input, output) {
        getToken(id = Sys.getenv("apiid"), pw = Sys.getenv("apipw"))
      }
      
-     if(input$site != "") {
+     if(nchar(input$site) >= 8) {
        ts <- getTimeSeriesIDs(input$site, input$parameter)
-       if(nrow(ts) > 0) {
+       if(!is.null(ts)) {
          ts <- ts[,c("Identifier", "UniqueId")]
        } else {
          ts <- data.frame(Identifier="None", UniqueId="None")
@@ -31,6 +31,7 @@ shinyServer(function(input, output) {
      timeSeries <- tsChoices()
      ch <- split(timeSeries$UniqueId, timeSeries$Identifier)
      selectInput("tsID", "Time series", ch, width="100%")
+
    })
    
    output$startSelect <- renderUI({
