@@ -43,7 +43,7 @@ setValidity("multiPointCorrection",
 
 
 #Get generic data from the AQ API, giving the request name, the names of parameters, and their values
-genericAQ <- function(serviceRequest, parameters, values, host="ts.nwis.usgs.gov") {
+genericAQ <- function(serviceRequest, parameters, values, host="ts-api.nwis.usgs.gov") {
   url <- paste0("http://", host, "/AQUARIUS/Publish/V2/" , serviceRequest, "?")
   q <- paste(parameters, values, sep="=")
   q <- paste(q, collapse="&")
@@ -151,7 +151,7 @@ findDisapproval <- function(approvalList) {
 
 #Get a token for using the API
 getToken <- function(id, pw) {
-  url <- paste0("http://ts.nwis.usgs.gov/AQUARIUS/Publish/V2/GetAuthToken?username=",
+  url <- paste0("http://ts-api.nwis.usgs.gov/AQUARIUS/Publish/V2/GetAuthToken?username=",
                 id, "&encryptedPassword=", pw)
   resp <- GET(url)
   cookies <- resp$cookies[,"value"]
