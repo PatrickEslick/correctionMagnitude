@@ -4,6 +4,7 @@ library(httr)
 library(dplyr)
 library(future)
 library(promises)
+plan(multiprocess)
 source("functions.R")
 
 shinyServer(function(input, output) {
@@ -78,7 +79,9 @@ shinyServer(function(input, output) {
      })
      
      if(location != "") {
-       output <- future({ makeTable(tsID, start, end, parm) })
+       output <- future({ makeTableConnect(tsID, start, end, parm,
+                                           id = Sys.getenv("apiid"),
+                                           pw = Sys.getenv("apipw")) })
      } else {
        output <- future ({ data.frame() })
      }

@@ -620,3 +620,10 @@ summarizeGaps <- function(gapTest, gapTol) {
                     tolerance)
   return(out)
 }
+
+makeTableConnect <- function(tsID, start, end, parm, id, pw) {
+  
+  tkn <- getToken(id, pw)
+  out <- makeTable(tsID, start, end, parm)
+  
+}
