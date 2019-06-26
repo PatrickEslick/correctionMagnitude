@@ -7,6 +7,11 @@ shinyUI(fluidPage(
   
   mainPanel(
     fluidRow(
+      column(8,
+        helpText("Seeing an error? Double check your inputs, and then try refreshing the page")
+      )
+    ),
+    fluidRow(
       column(3, 
         textInput("site", "Location", placeholder="XXXXXXXX"),
         selectInput("parameter", "Parameter", choices=c("Specific cond at 25C", "Turbidity, FNU", "Dissolved oxygen", 

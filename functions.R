@@ -171,6 +171,20 @@ testToken <- function() {
   
 }
 
+retryToken <- function(id, pw) {
+  
+  tkn <- getToken(id, pw)
+  i <- 0
+  while(!(testToken()) & i < 10) {
+    Sys.sleep(1)
+    tkn <- getToken(id, pw)
+    i <- i + 1
+  }
+  
+  return(tkn)
+  
+}
+
 #Get raw data for the time series between the start and end dates
 getRawData <- function(tsID, start, end) {
   serviceRequest <- "GetTimeSeriesRawData"
@@ -202,6 +216,32 @@ getCorrectedData <- function(tsID, start, end) {
 
 #Get a list of correction objects from a time series ID and start and end times
 getCorrections <- function(tsID, start, end) {
+  
+  setClass(
+    "multiPointCorrection",
+    slots = c(
+      startTime = "POSIXct",
+      endTime = "POSIXct",
+      set = "numeric",
+      startValues = "numeric",
+      startOffsets = "numeric",
+      endValues = "numeric",
+      endOffsets = "numeric"
+    )
+  )
+  
+  setValidity("multiPointCorrection",
+              function(object) {
+                object@startTime <= object@endTime &&
+                  length(object@set) == 1 &&
+                  object@set %in% 1:3 &&
+                  length(object@startValues) <= 3 &&
+                  length(object@startValues) == length(object@startOffsets) &&
+                  length(object@endValues) <= 3 &&
+                  length(object@endValues) == length(object@endOffsets) 
+              }
+  )
+  
   corrections <- list()
   parameters <- c("TimeSeriesUniqueId", "QueryFrom", "QueryTo")
   values <- c(tsID, start, end)
@@ -228,8 +268,14 @@ getCorrections <- function(tsID, start, end) {
       startOffsets <- startShiftPoints$Offset
       endValues <- endShiftPoints$Value
       endOffsets <- endShiftPoints$Offset
-      try({corrections[[length(corrections) + 1]] <- new("multiPointCorrection", startTime = startTime, endTime = endTime, set = set, 
-        startValues = startValues, startOffsets = startOffsets, endValues = endValues, endOffsets = endOffsets)}, silent=TRUE)
+      corrections[[length(corrections) + 1]] <- new("multiPointCorrection", 
+                                                         startTime = startTime, 
+                                                         endTime = endTime, 
+                                                         set = set, 
+                                                         startValues = startValues, 
+                                                         startOffsets = startOffsets, 
+                                                         endValues = endValues, 
+                                                         endOffsets = endOffsets)
     }
   }
   return(corrections)
@@ -251,83 +297,72 @@ getGapTolerance <- function(tsID, start, end) {
 # PROCESSING CORRECTIONS
 #-----------------------------------------------------------------------------------------------------------------------------------
 
-#Return the full effect of a correction given a raw value, starting points and ending points
-fullCorrection <-function(raw, values, offsets) {
-  corrPoints <- data.frame(values, offsets)
-  #Order the fraom in increasing order of value
-  corrPoints <- corrPoints[order(corrPoints$values),]
-  check <- raw > corrPoints$values
-  if(all(!check)) { #The raw value is less than the lowest value
-    full <- corrPoints[corrPoints$value == min(corrPoints$value), "offsets"]
-  } else if(all(check)) { #The raw value is greater than the highest value
-    full <- corrPoints[corrPoints$value == max(corrPoints$value), "offsets"]
-  } else { # The raw value is between two values
-    #Find which two points bracket the raw value
-    distance <- raw - corrPoints$values
-    upperD <- max(distance[distance < 0])
-    lowerD <- min(distance[distance > 0])
-    upperV <- raw - upperD
-    lowerV <- raw - lowerD
-    upperO <- corrPoints[corrPoints$value == upperV, "offsets"]
-    lowerO <- corrPoints[corrPoints$value == lowerV, "offsets"]
-    full <- (((raw - lowerV) * (upperO - lowerO)) / (upperV - lowerV)) + lowerO
+#Apply a correction (correction object) to a time series
+applyCorrection <- function(datetime, raw, correction) {
+  
+  #Find the time factor for each raw value
+  tf <- approx(x = c(correction@startTime, correction@endTime),
+               y = c(0, 1),
+               xout = datetime,
+               yleft = NA,
+               yright = NA)$y
+  
+  #Interpolate correction start points for each raw value
+  if(length(correction@startOffsets) > 1) {
+    sc <- approx(x = correction@startValues, 
+                 y = correction@startOffsets, 
+                 xout = raw,
+                 yleft = correction@startOffsets[which.min(correction@startValues)],
+                 yright = correction@startOffsets[which.max(correction@startValues)])$y
+  } else if(length(correction@startOffsets) == 1){
+    sc <- rep(correction@startOffsets[1], length(raw))
+  } else if (length(correction@startOffsets) == 0) {
+    sc <- rep(0, length(raw))
   }
-  return(full)
-}
-
-#Return a function to calculate the time proration factor (between 0 and 1) for a starTime and endTime
-tFactorFunction <- function(startTime, endTime) {
-  tFactor <- function(time) {
-    return(as.numeric(difftime(time, startTime, units='hours'))/as.numeric(difftime(endTime, startTime, units='hours')))
+  
+  #Interpolate correction end points for each raw values
+  if(length(correction@endOffsets) > 1) {
+    ec <- approx(x = correction@endValues, 
+                 y = correction@endOffsets, 
+                 xout = raw,
+                 yleft = correction@endOffsets[which.min(correction@endValues)],
+                 yright = correction@endOffsets[which.max(correction@endValues)])$y
+  } else if(length(correction@endOffsets == 1)) {
+    ec <- rep(correction@endOffsets[1], length(raw))
+  } else if(length(correction@endOffsets == 0)) {
+    ec <- rep(0, length(raw))
   }
-  return(tFactor)
-}
-
-#Calculate a correction based on the raw values, time and correction object
-calcCorrection <- function(raw, time, correction) {
-  if(time <= correction@endTime & time >= correction@startTime) {
-    tFactor <- tFactorFunction(correction@startTime, correction@endTime)
-    startFull <- fullCorrection(raw, correction@startValues, correction@startOffsets)
-    endFull <- fullCorrection(raw, correction@endValues, correction@endOffsets)
-    correction <- startFull + (endFull - startFull) * tFactor(time)
-  } else {
-    correction <- 0
-  }
-  return(correction)
+  
+  #Calculate the corrected value for each raw value
+  correction_value <- ((1 - tf) * sc) + (tf * ec)
+  
+  correction_value[is.na(correction_value)] <- 0
+  
+  return(correction_value)
   
 }
 
-#Apply a correction (correction object) to a time series
-applyCorrection <- function(timeSeries, correction, to="raw") {
-  calc <- function(x, y) {
-    calcCorrection(x, y, correction)
-  }
-  timeSeries$inCorr <- timeSeries$datetime > correction@startTime & timeSeries$datetime < correction@endTime
-  timeSeries$corrValue <- 0
-  timeSeries$corrValue[timeSeries$inCorr] <- 
-    mapply(calc, timeSeries[timeSeries$inCorr,to], timeSeries[timeSeries$inCorr,"datetime"])
-  return(timeSeries$corrValue)
-}
-
 #Cycle through the corrections and calculate the magnitude of the fouling corrections
-applyFouling <- function(timeSeries, corrections, to="raw") {
+applyFouling <- function(timeSeries, corrections) {
   
   timeSeries$foulingCorrection <- 0
   for(i in corrections) {
     if((!all(c(i@startOffsets, i@endOffsets)==0)) & i@set == 1) {
-      timeSeries$foulingCorrection <- timeSeries$foulingCorrection + unlist(applyCorrection(timeSeries, i, to))
+      timeSeries$foulingCorrection <- timeSeries$foulingCorrection + 
+        applyCorrection(timeSeries$datetime, timeSeries$raw, i)
     }
   }
   return(timeSeries$foulingCorrection)
 }
 
 #Cycle through the corrections and calculate the magnitude of the drift corrections
-applyDrift <- function(timeSeries, corrections, to="raw") {
+applyDrift <- function(timeSeries, corrections) {
   
   timeSeries$driftCorrection <- 0
   for(i in corrections) {
     if((!all(c(i@startOffsets, i@endOffsets)==0)) & i@set == 2) {
-      timeSeries$driftCorrection <- timeSeries$driftCorrection + unlist(applyCorrection(timeSeries, i, to))
+      timeSeries$driftCorrection <- timeSeries$driftCorrection + 
+        applyCorrection(timeSeries$datetime, timeSeries$foulingCorrected, i)
     }
   }
   return(timeSeries$driftCorrection)
@@ -344,7 +379,7 @@ corrApply <- function(tsID, startDate, endDate) {
   timeSeries$foulingPercent <- (timeSeries$fouling/timeSeries$raw) * 100
   timeSeries$foulingCorrected <- timeSeries$raw + timeSeries$fouling
   #Calculate the drift corrections
-  timeSeries$drift <- applyDrift(timeSeries, corrections, to="foulingCorrected")
+  timeSeries$drift <- applyDrift(timeSeries, corrections)
   timeSeries$driftPercent <- (timeSeries$drift/timeSeries$foulingCorrected) * 100
   timeSeries$netCorrection <- timeSeries$fouling + timeSeries$drift
   timeSeries$netPercent <- timeSeries$netCorrection/timeSeries$raw * 100
@@ -366,17 +401,8 @@ corrApply <- function(tsID, startDate, endDate) {
 }
 
 #Take a time series and grade it based on what parameter it is
-wagnerGrade <- function(parameter, values, percent=NULL, numeric=NULL) {
+wagnerGrade <- function(parameter, raw, percent, numerical) {
   
-  if(!(is.null(percent))) {
-    percent <- abs(percent)
-    percent <- percent/100
-    percent <- round(percent, digits=4)
-  }
-  if(!(is.null(numeric))) {
-    numeric <- abs(numeric)
-    numeric <- round(numeric, 2)
-  }
   if(parameter == "Specific cond at 25C") {
     pPoint <- 0
     pExcellent <- c(0, 0.03)
@@ -439,43 +465,27 @@ wagnerGrade <- function(parameter, values, percent=NULL, numeric=NULL) {
     nDel <- c(2, Inf)
   }
   
-  grade <- vector()
+  num_correction <- abs(numerical)
+  per_correction <- abs(percent) / 100
+  use_percent <- raw > pPoint
+  use_numeric <- !use_percent
+  grade <- rep("Unassigned", length(num_correction))
   
-  for(i in 1:length(values)) {
-   if(values[i] >= pPoint) {
-     excellent <- (percent[i] <= pExcellent[2])
-     good <- (percent[i] > pGood[1] & percent[i] <= pGood[2])
-     fair <- (percent[i] > pFair[1] & percent[i] <= pFair[2])
-     poor <- (percent[i] > pPoor[1] & percent[i] <= pPoor[2])
-     considerDeletion <- (percent[i] > pDel[1])
-   } else {
-     excellent <- (numeric[i] <= nExcellent[2])
-     good <- (numeric[i] > nGood[1] & numeric[i] <= nGood[2])
-     fair <- (numeric[i] > nFair[1] & numeric[i] <= nFair[2])
-     poor <- (numeric[i] > nPoor[1] & numeric[i] <= nPoor[2])
-     considerDeletion <- (numeric[i] > nDel[1])
-   }
-    
-    if(sum(c(excellent, good, fair, poor, considerDeletion)) != 1) {
-      print("SUM != 1")
-    }
-    if(excellent) {
-      grade[i] <- "Excellent"
-    } else if(good) {
-      grade[i] <- "Good"
-    } else if(fair) {
-      grade[i] <- "Fair" 
-    } else if(poor) {
-      grade[i] <- "Poor"
-    } else if(considerDeletion) {
-      grade[i] <- "Consider Deletion"
-    } else {
-      grade[i] <- "Ungraded"
-    }
-  }
+  #Apply percentage grades
+  grade[use_percent & per_correction <= pExcellent[2]] <- "Excellent"
+  grade[use_percent & per_correction > pGood[1] & per_correction <= pGood[2]] <- "Good"
+  grade[use_percent & per_correction > pFair[1] & per_correction <= pFair[2]] <- "Fair"
+  grade[use_percent & per_correction > pPoor[1] & per_correction <= pPoor[2]] <- "Poor"
+  grade[use_percent & per_correction > pDel[1]] <- "Consider Deletion"
+  
+  #Apply numeric grades
+  grade[use_numeric & num_correction <= nExcellent[2]] <- "Excellent"
+  grade[use_numeric & num_correction > nGood[1] & num_correction <= nGood[2]] <- "Good"
+  grade[use_numeric & num_correction > nFair[1] & num_correction <= nFair[2]] <- "Fair"
+  grade[use_numeric & num_correction > nPoor[1] & num_correction <= nPoor[2]] <- "Poor"
+  grade[use_numeric & num_correction > nDel[1]] <- "Consider Deletion"
   
   return(grade)
-  
 }
 
 recordCompleteness <- function(datetimes, start = "auto", end = "auto", freq = "auto") {
@@ -623,7 +633,7 @@ summarizeGaps <- function(gapTest, gapTol) {
 
 makeTableConnect <- function(tsID, start, end, parm, id, pw) {
   
-  tkn <- getToken(id, pw)
+  tkn <- retryToken(id, pw)
   out <- makeTable(tsID, start, end, parm)
   
 }

@@ -11,9 +11,7 @@ shinyServer(function(input, output) {
     
    tsChoices <- reactive({
      
-     if(testToken() == FALSE) {
-       getToken(id = Sys.getenv("apiid"), pw = Sys.getenv("apipw"))
-     }
+    tkn <- retryToken(id = Sys.getenv("apiid"), pw = Sys.getenv("apipw"))
      
      if(nchar(input$site) >= 8) {
        ts <- getTimeSeriesIDs(input$site, input$parameter)
@@ -61,14 +59,9 @@ shinyServer(function(input, output) {
      text
    })
    
-   #CONVERT THIS TO A FUTURE
    table <- reactive({
      
      input$go 
-  
-     if(testToken() == FALSE) {
-       getToken()
-     }
      
      isolate({
        location <- input$site
@@ -89,7 +82,7 @@ shinyServer(function(input, output) {
    })
    
    output$summary <- renderTable({
-     table () %...>%
+     table() %...>%
        summarizeGrades()
    })
    
